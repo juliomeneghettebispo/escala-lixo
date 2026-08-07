@@ -1,0 +1,22 @@
+name: Aviso Retirada de Lixo
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-6'  # 6h horario de Brasilia (UTC-3), segunda a sabado
+  workflow_dispatch:         # permite rodar manualmente pelo GitHub
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Executar script
+        run: python avisar_lixo.py
