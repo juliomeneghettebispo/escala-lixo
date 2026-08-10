@@ -1,9 +1,8 @@
 """
 avisar_lixo.py — Escala de Retirada de Lixo • Bispo Alimentos
 
-Roda todo dia automaticamente:
-  - Segunda-feira: envia resumo semanal para todos da semana + aviso do dia
-  - Demais dias:   envia apenas o aviso para o responsavel do dia
+- Segunda-feira: envia resumo semanal + aviso do dia
+- Demais dias:   envia apenas aviso do dia
 
 Uso manual:
   python avisar_lixo.py           -> execucao normal
@@ -24,23 +23,22 @@ LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAqsAAADLCAMAAAB+riqwAAAA/1BMVEUAAADRIRgARYwA
 SHEET_ID   = "1txqXRtwt0FyH9gpHqSNLex2raO7Z6zjp4QZnRfr5f4o"
 GID_EMAILS = "618358573"
 
-# Para adicionar novos meses: clique na aba e copie o numero apos #gid= na URL
 GIDS_MESES = {
     "Mai26": "PREENCHER",
     "Jun26": "PREENCHER",
     "Jul26": "PREENCHER",
     "Ago26": "1416374903",
-    "Set26": "708121321",
+    "Set26": "PREENCHER",
     "Out26": "PREENCHER",
     "Nov26": "PREENCHER",
     "Dez26": "PREENCHER",
 }
 
-SMTP_SERVIDOR  = "mail.netnew.com.br"
+SMTP_SERVIDOR  = "smtp.gmail.com"
 SMTP_PORTA     = 587
-SMTP_USUARIO   = "escaladolixo@bispoalimentos.com.br"
-SMTP_SENHA     = "Bispo@9210@"
-NOME_REMETENTE = "Escala do Lixo"
+SMTP_USUARIO   = "escaladolixobispo@gmail.com"
+SMTP_SENHA     = "rzooztcjfitjwsty"
+NOME_REMETENTE = "Escala do Lixo - Bispo"
 # ──────────────────────────────────────────────────────────
 
 MODO_TESTE = "--teste" in sys.argv
@@ -52,8 +50,6 @@ DIAS_PT = {
 }
 _MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
 
-# ─── Helpers ──────────────────────────────────────────────
-
 def aba_mes_atual():
     h = datetime.today()
     return f"{_MESES[h.month-1]}{str(h.year)[2:]}"
@@ -63,7 +59,6 @@ def gid_mes_atual():
     gid = GIDS_MESES.get(aba)
     if not gid or gid == "PREENCHER":
         print(f"AVISO: GID da aba '{aba}' nao preenchido.")
-        print("  Abra a planilha, clique na aba e copie o numero apos #gid= na URL.")
         sys.exit(1)
     return gid
 
@@ -112,7 +107,8 @@ def enviar_email(nome, email, assunto, corpo):
             s.sendmail(SMTP_USUARIO, email, msg.as_string())
         print(f"  [OK] {nome} <{email}>")
     except smtplib.SMTPAuthenticationError:
-        print("Falha SMTP: verifique usuario e senha."); sys.exit(1)
+        print("Falha SMTP: verifique usuario e senha de app do Gmail.")
+        sys.exit(1)
     except Exception as e:
         print(f"  Erro ao enviar para {nome}: {e}")
 
@@ -137,8 +133,6 @@ def build_email(icone, titulo, conteudo):
   </div>
 </div>
 </body></html>"""
-
-# ─── E-mails ──────────────────────────────────────────────
 
 def corpo_diario(nome, data):
     dia = DIAS_PT.get(data.strftime("%A"), data.strftime("%A"))
@@ -166,11 +160,9 @@ def corpo_semanal(nome, data):
       <p style="color:#666;font-size:13px;">Voce recebera um novo lembrete na manha do dia.</p>"""
     return assunto, build_email("&#128276;", "Escala da Semana &ndash; Retirada de Lixo", conteudo)
 
-# ─── Fluxo principal ──────────────────────────────────────
-
 def main():
     hoje   = datetime.today().date()
-    is_seg = hoje.weekday() == 0  # segunda-feira
+    is_seg = hoje.weekday() == 0
 
     print(f"{'='*50}")
     print(f"Data: {hoje.strftime('%d/%m/%Y')} | Aba: {aba_mes_atual()}")
@@ -178,9 +170,8 @@ def main():
 
     escala = carregar_escala()
     emails = carregar_emails()
-    print(f"Registros carregados: {len(escala)} | E-mails cadastrados: {len(emails)}")
+    print(f"Registros: {len(escala)} | E-mails: {len(emails)}")
 
-    # ── Segunda-feira: resumo semanal ──
     if is_seg:
         seg = hoje
         sab = seg + timedelta(days=5)
@@ -189,35 +180,30 @@ def main():
         for r in semana:
             entrada = emails.get(normalizar(r["nome"]))
             if not entrada:
-                print(f"  AVISO: {r['nome']} ({r['data'].strftime('%d/%m')}) sem e-mail")
-                continue
+                print(f"  AVISO: {r['nome']} sem e-mail"); continue
             assunto, corpo = corpo_semanal(r["nome"], r["data"])
             if MODO_TESTE:
-                dia = DIAS_PT.get(r["data"].strftime("%A"), "")
-                print(f"  [TESTE] {r['nome']} — {dia}, {r['data'].strftime('%d/%m/%Y')} -> {entrada['email']}")
+                print(f"  [TESTE] {r['nome']} — {r['data'].strftime('%d/%m/%Y')} -> {entrada['email']}")
             else:
                 enviar_email(r["nome"], entrada["email"], assunto, corpo)
 
-    # ── Todo dia: aviso do responsavel ──
     print(f"\n[DIARIO] Responsavel de hoje:")
-    responsavel = next((x for x in escala if x["data"] == hoje), None)
-    if not responsavel:
-        print("  Nenhum responsavel cadastrado para hoje.")
+    resp = next((x for x in escala if x["data"] == hoje), None)
+    if not resp:
+        print("  Nenhum responsavel hoje.")
     else:
-        nome   = responsavel["nome"]
-        entrada = emails.get(normalizar(nome))
+        entrada = emails.get(normalizar(resp["nome"]))
         if not entrada:
-            print(f"  AVISO: {nome} sem e-mail na aba Emails.")
+            print(f"  AVISO: {resp['nome']} sem e-mail.")
         else:
-            assunto, corpo = corpo_diario(nome, hoje)
+            assunto, corpo = corpo_diario(resp["nome"], hoje)
             if MODO_TESTE:
-                print(f"  [TESTE] {nome} -> {entrada['email']}")
-                print(f"  Assunto: {assunto}")
+                print(f"  [TESTE] {resp['nome']} -> {entrada['email']}")
             else:
-                enviar_email(nome, entrada["email"], assunto, corpo)
+                enviar_email(resp["nome"], entrada["email"], assunto, corpo)
 
     if MODO_TESTE:
-        print(f"\nTeste concluido. Nenhum e-mail foi enviado.")
+        print(f"\nTeste concluido. Nenhum e-mail enviado.")
     print(f"{'='*50}")
 
 if __name__ == "__main__":
