@@ -3,7 +3,12 @@ name: Aviso Retirada de Lixo
 on:
   schedule:
     - cron: '0 9 * * 1-5'  # 6h horario de Brasilia (UTC-3), segunda a sexta
-  workflow_dispatch:         # permite rodar manualmente pelo GitHub
+  workflow_dispatch:
+    inputs:
+      confirmar_envio:
+        description: 'Digite ENVIAR para confirmar o envio real de e-mails (em branco = modo teste, nenhum e-mail e enviado)'
+        required: false
+        default: ''
 
 jobs:
   avisar:
@@ -19,4 +24,10 @@ jobs:
           python-version: '3.11'
 
       - name: Executar script
-        run: python avisar_lixo.py
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.confirmar_envio }}" != "ENVIAR" ]; then
+            echo "Execucao manual sem confirmacao (digite ENVIAR no campo confirmar_envio) -> modo teste, nenhum e-mail sera enviado."
+            python avisar_lixo.py --teste
+          else
+            python avisar_lixo.py
+          fi
