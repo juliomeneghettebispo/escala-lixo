@@ -2,13 +2,23 @@ name: Aviso Retirada de Lixo
 
 on:
   schedule:
-    - cron: '0 9 * * 1-5'  # 6h horario de Brasilia (UTC-3), segunda a sexta
+    - cron: '0 9 * * 1-5' # 6h horario de Brasilia (UTC-3), segunda a sexta
   workflow_dispatch:
     inputs:
       confirmar_envio:
         description: 'Digite ENVIAR para confirmar o envio real de e-mails (em branco = modo teste, nenhum e-mail e enviado)'
         required: false
         default: ''
+
+# Garante que duas execucoes (ex.: agendada + manual) nunca rodem ao mesmo
+# tempo: a segunda espera a primeira terminar antes de checar/registrar o
+# controle de envio do dia, evitando corrida que duplicaria o e-mail.
+concurrency:
+  group: aviso-lixo
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   avisar:
@@ -30,4 +40,18 @@ jobs:
             python avisar_lixo.py --teste
           else
             python avisar_lixo.py
+          fi
+
+      - name: Registrar envio do dia (evita duplicidade)
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain ultimo_envio.txt 2>/dev/null)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add ultimo_envio.txt
+            git commit -m "chore: registra envio de $(cat ultimo_envio.txt)"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          else
+            echo "Nada para registrar."
           fi
