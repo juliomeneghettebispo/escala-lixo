@@ -9,7 +9,7 @@ Uso manual:
   python avisar_lixo.py --teste   -> simula sem enviar nada
 """
 
-import smtplib, sys, csv, io, urllib.request
+import smtplib, sys, os, csv, io, urllib.request
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -36,9 +36,15 @@ GIDS_MESES = {
 
 SMTP_SERVIDOR = "smtp.gmail.com"
 SMTP_PORTA = 587
-SMTP_USUARIO = "escaladolixobispo@gmail.com"
-SMTP_SENHA = "rzooztcjfitjwsty"
+SMTP_USUARIO = os.environ.get("SMTP_USUARIO")
+SMTP_SENHA = os.environ.get("SMTP_SENHA")
 NOME_REMETENTE = "Escala do Lixo - Bispo"
+
+if not SMTP_USUARIO or not SMTP_SENHA:
+    print("ERRO: variaveis de ambiente SMTP_USUARIO e/ou SMTP_SENHA nao definidas.")
+    print("No GitHub Actions, configure-as em Settings > Secrets and variables > Actions")
+    print("e garanta que o step 'Executar script' as repasse via 'env:'.")
+    sys.exit(1)
 
 # Arquivo de controle: guarda a data (AAAA-MM-DD) do ultimo envio real
 # concluido. Ele fica versionado no repositorio para sobreviver entre
