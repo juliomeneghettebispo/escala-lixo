@@ -17,16 +17,21 @@ concurrency:
   group: aviso-lixo
   cancel-in-progress: false
 
+# Permissao minima necessaria: so o job realmente usa 'contents: write'
+# para commitar o arquivo de controle (ultimo_envio.txt).
 permissions:
   contents: write
 
 jobs:
   avisar:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
       - name: Baixar repositorio
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -34,24 +39,47 @@ jobs:
           python-version: '3.11'
 
       - name: Executar script
+        env:
+          SMTP_USUARIO: ${{ secrets.SMTP_USUARIO }}
+          SMTP_SENHA: ${{ secrets.SMTP_SENHA }}
         run: |
+          set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.confirmar_envio }}" != "ENVIAR" ]; then
             echo "Execucao manual sem confirmacao (digite ENVIAR no campo confirmar_envio) -> modo teste, nenhum e-mail sera enviado."
             python avisar_lixo.py --teste
           else
+            echo "Execucao real (evento: ${{ github.event_name }}) -> envio de e-mail habilitado."
             python avisar_lixo.py
           fi
 
       - name: Registrar envio do dia (evita duplicidade)
         if: always()
         run: |
-          if [ -n "$(git status --porcelain ultimo_envio.txt 2>/dev/null)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add ultimo_envio.txt
-            git commit -m "chore: registra envio de $(cat ultimo_envio.txt)"
-            git pull --rebase origin main
-            git push origin HEAD:main
-          else
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain ultimo_envio.txt 2>/dev/null)" ]; then
             echo "Nada para registrar."
+            exit 0
           fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ultimo_envio.txt
+          git commit -m "chore: registra envio de $(cat ultimo_envio.txt)"
+
+          # Retry com backoff: se o push falhar (conflito, instabilidade de
+          # rede), tenta novamente em vez de deixar o e-mail enviado sem o
+          # controle atualizado -- o que causaria duplicidade na proxima run.
+          tentativas=5
+          for i in $(seq 1 $tentativas); do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "Controle de envio registrado com sucesso (tentativa $i)."
+              exit 0
+            fi
+            echo "Push falhou (tentativa $i/$tentativas). Aguardando e tentando novamente..."
+            sleep $((i * 5))
+          done
+
+          echo "ERRO: nao foi possivel registrar 'ultimo_envio.txt' apos $tentativas tentativas."
+          echo "O e-mail pode ja ter sido enviado -- verifique manualmente antes de rodar de novo hoje."
+          exit 1
