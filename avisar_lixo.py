@@ -29,7 +29,7 @@ GIDS_MESES = {
     "Jul26": "PREENCHER",
     "Ago26": "1416374903",
     "Set26": "708121321",
-    "Out26": "PREENCHER",
+    "Out26": "309815557",
     "Nov26": "PREENCHER",
     "Dez26": "PREENCHER",
 }
