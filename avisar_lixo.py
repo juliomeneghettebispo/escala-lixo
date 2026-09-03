@@ -17,7 +17,7 @@ from unicodedata import normalize
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-LOGO_URL = "https://github.com/juliomeneghettebispo/escala-lixo/tree/main/srclogo.png"
+LOGO_URL = "https://github.com/juliomeneghettebispo/escala-lixo/tree/main/src/logo.png"
 
 # ─── CONFIG ─────────────────────────────────────────────
 SHEET_ID = "1txqXRtwt0FyH9gpHqSNLex2raO7Z6zjp4QZnRfr5f4o"
