@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '0 9 * * 1-5' # 6h horario de Brasilia (UTC-3), segunda a sexta
   workflow_dispatch:
-    inputs:
-      confirmar_envio:
-        description: 'Digite ENVIAR para confirmar o envio real de e-mails (em branco = modo teste, nenhum e-mail e enviado)'
-        required: false
-        default: ''
 
 # Garante que duas execucoes (ex.: agendada + manual) nunca rodem ao mesmo
 # tempo: a segunda espera a primeira terminar antes de checar/registrar o
@@ -44,13 +39,8 @@ jobs:
           SMTP_SENHA: ${{ secrets.SMTP_SENHA }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.confirmar_envio }}" != "ENVIAR" ]; then
-            echo "Execucao manual sem confirmacao (digite ENVIAR no campo confirmar_envio) -> modo teste, nenhum e-mail sera enviado."
-            python avisar_lixo.py --teste
-          else
-            echo "Execucao real (evento: ${{ github.event_name }}) -> envio de e-mail habilitado."
-            python avisar_lixo.py
-          fi
+          echo "Execucao real (evento: ${{ github.event_name }}) -> envio de e-mail habilitado."
+          python avisar_lixo.py
 
       - name: Registrar envio do dia (evita duplicidade)
         if: always()
