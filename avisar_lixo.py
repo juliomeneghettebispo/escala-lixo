@@ -32,7 +32,7 @@ GIDS_MESES = {
     "Set26": "708121321",
     "Out26": "309815557",
     "Nov26": "1965158820",
-    "Dez26": "PREENCHER",
+    "Dez26": "1502367353",
 }
 
 SMTP_SERVIDOR = "smtp.gmail.com"
